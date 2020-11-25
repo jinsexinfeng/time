@@ -111,6 +111,16 @@ Begin VB.Form Form1
       Top             =   240
       Width           =   3495
    End
+   Begin VB.Shape Shape2 
+      BorderColor     =   &H00FFFFFF&
+      BorderStyle     =   0  'Transparent
+      FillColor       =   &H0080C0FF&
+      FillStyle       =   0  'Solid
+      Height          =   10000
+      Left            =   0
+      Top             =   1000
+      Width           =   3855
+   End
 End
 Attribute VB_Name = "Form1"
 Attribute VB_GlobalNameSpace = False
@@ -127,6 +137,7 @@ Dim t2 As String
 Dim t3 As String
 Dim st As String
 Dim p1 As String
+Dim d As String
 
 Private Declare Function SetWindowPos Lib "user32" (ByVal hwnd As Long, ByVal hWndInsertAfter As Long, ByVal X As Long, ByVal Y As Long, ByVal cx As Long, ByVal cy As Long, ByVal wFlags As Long) As Long
 Dim BolIsMove As Boolean, MousX As Long, MousY As Long
@@ -204,6 +215,7 @@ sy = Screen.Height
 b = 0
 st = 1
 auto = 1
+d = 1
 Form1.BackColor = RGB(228, 228, 229)
 '半透明
 Dim rtn As Long
@@ -253,9 +265,19 @@ MsgBox ("已开启自动时间设置")
 End If
 Exit Sub
 End If
+If t2 = "d" Then
+If d = 1 Then
+d = 0
+MsgBox ("课堂模式")
+Else
+d = 1
+MsgBox ("倒数日模式")
+End If
+Exit Sub
+End If
 For z = 1 To Len(t2)
 t3 = Mid(t2, z, 1)
-If Asc(t3) > 57 Or Asc(t3) < 48 Then
+If Asc(t3) > 57 Or Asc(t3) < 46 Or Asc(t3) = 47 Then
 MsgBox ("输入错误")
 Exit Sub
 End If
@@ -302,6 +324,7 @@ End If
 If st = 0 Then
 Timer2.Enabled = False
 Timer3.Enabled = False
+Label4.ForeColor = RGB(255, 0, 255)
 If a = 0 Then Label4.Caption = "已禁用下课提醒"
 If a = 1 Then Label4.Caption = "禁"
 Else
@@ -313,35 +336,54 @@ Private Sub Timer2_Timer()
 If auto <> 0 Then
 If Time() = "7:25:00" Or Time() = "8:15:00" Or Time() = "9:20:00" Or Time() = "10:10:00" Or Time() = "11:05:00" Or Time() = "13:45:00" Or Time() = "14:40:00" Or Time() = "15:30:00" Or Time() = "16:20:00" Then
 i = 2400
+Shape2.FillColor = RGB(140 + Rnd() * 83, 140 + Rnd() * 83, 140 + Rnd() * 83)
+End If
+If Time() = "7:55:00" Or Time() = "8:45:00" Or Time() = "9:50:00" Or Time() = "10:40:00" Or Time() = "11:35:00" Or Time() = "14:15:00" Or Time() = "15:10:00" Or Time() = "16:00:00" Or Time() = "16:50:00" Then
+i = 600
 End If
 If Time() = "18:00:00" Then
 i = 6300
+Shape2.FillColor = RGB(140 + Rnd() * 83, 140 + Rnd() * 83, 140 + Rnd() * 83)
 End If
 If Time() = "20:00:00" Then
 i = 5400
+Shape2.FillColor = RGB(140 + Rnd() * 83, 140 + Rnd() * 83, 140 + Rnd() * 83)
 End If
 End If
 '开始上课时定时
-i = i - 1
 If i >= 0 Then
-Else
+i = i - 1
+Shape2.Top = (2400 - i) / 2400 * 2010
+End If
+If i <= 0 Then
+If d = 0 Then
 If a = 0 Then Label4.Caption = "提示:非课堂时间"
 If a = 1 Then Label4.Caption = "停"
-Exit Sub
-End If
-If i > 600 Or i <= 0 Then
-If a = 0 Then
-p1 = "本节课还剩:" & i \ 60 & ":" & i Mod 60
-Label4.Caption = p1
-End If
-If a = 1 Then
-Label4.Caption = i \ 60
+Label4.ForeColor = RGB(82, 64, 192)
+Else
+If a = 0 Then Label4.Caption = "距离学考:" & DateDiff("d", Now(), CDate("2021/1/6")) & "天"
+If a = 1 Then Label4.Caption = DateDiff("d", Now(), CDate("2021/1/6"))
+Label4.ForeColor = RGB(221, 8, 8)
 End If
 Timer3.Enabled = False
-Else
+Exit Sub
+End If
+If i > 600 Then
+If a = 0 Then
+p1 = "本节课还剩:" & i \ 60 & ":" & i Mod 60
+If d = 0 Then Label4.Caption = p1: Label4.ForeColor = RGB(82, 64, 192)
+If d = 1 Then Label4.Caption = "距离学考:" & DateDiff("d", Now(), CDate("2021/1/6")) & "天": Label4.ForeColor = RGB(221, 8, 8)
+End If
+If a = 1 Then
+If d = 0 Then Label4.Caption = i \ 60: Label4.ForeColor = RGB(82, 64, 192)
+If d = 1 Then Label4.Caption = DateDiff("d", Now(), CDate("2021/1/6")): Label4.ForeColor = RGB(221, 8, 8)
+End If
+Timer3.Enabled = False
+End If
+If i <= 600 And i > 0 Then
 Timer3.Enabled = True
 End If
-If i = 60 And a = 1 Then
+If i = 60 And Form1.Left > 14500 / 19200 * sx Then
 Form1.Left = 14500 / 19200 * sx
 End If
 '课堂倒计时
@@ -351,10 +393,10 @@ Private Sub Timer3_Timer()
 If b = 0 Then
 If a = 0 Then
 p1 = "本节课还剩:" & i \ 60 & ":" & i Mod 60
-Label4.Caption = p1
+Label4.Caption = p1: Label4.ForeColor = RGB(82, 64, 192)
 End If
 If a = 1 Then
-Label4.Caption = i \ 60
+Label4.Caption = i \ 60: Label4.ForeColor = RGB(82, 64, 192)
 End If
 b = 1
 Else
