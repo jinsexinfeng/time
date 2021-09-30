@@ -15,7 +15,7 @@ Begin VB.Form Form1
    ShowInTaskbar   =   0   'False
    Begin VB.Timer Timer3 
       Enabled         =   0   'False
-      Interval        =   500
+      Interval        =   350
       Left            =   2160
       Top             =   960
    End
@@ -129,14 +129,19 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Dim i As Integer
 Dim a As Integer
-Dim b As Integer
+Dim b As String
 Dim auto As Integer
 Dim sx As Integer
 Dim sy As Integer
 Dim t2 As String
 Dim t3 As String
-Dim st As String
+Dim st As Integer
+Dim wa As Integer
 Dim p1 As String
+Dim pd1 As String
+Dim pd2 As String
+Dim color1 As Single
+Dim color2 As Single
 Dim d As String
 
 Private Declare Function SetWindowPos Lib "user32" (ByVal hwnd As Long, ByVal hWndInsertAfter As Long, ByVal X As Long, ByVal Y As Long, ByVal cx As Long, ByVal cy As Long, ByVal wFlags As Long) As Long
@@ -166,6 +171,8 @@ Private Declare Function DeleteObject Lib "gdi32" (ByVal hObject As Long) As Lon
 '将CreateRoundRectRgn创建的区域删除，这是必要的，否则不必要的占用电脑内存
 Dim outrgn As Long
 '接下来声明一个全局变量,用来获得区域句柄
+
+
 Private Sub Form_Activate() '窗体Activate()事件
 Call rgnform(Me, 30, 30) '调用子过程
 End Sub
@@ -202,20 +209,25 @@ BolIsMove = False
 End Sub
 '鼠标移动代码
 
-Private Sub Form_QueryUnload(Cancel As Integer, UnloadMode As Integer)
-If t2 <> "e" Then Cancel = True
+'Private Sub Form_QueryUnload(Cancel As Integer, UnloadMode As Integer)
+'If t2 <> "e" Then Cancel = True
 '取消关闭
-End Sub
+'End Sub
 
 Private Sub Form_Load()
 '窗口置顶代码
 SetWindowPos Me.hwnd, -1, 0, 0, 0, 0, 2 Or 1
 sx = Screen.Width
 sy = Screen.Height
+Randomize
+Call bcolor
 b = 0
 st = 1
 auto = 1
 d = 1
+wa = 1 '弹出提醒取消
+pd2 = DateDiff("d", Now(), CDate("2021/7/3"))
+pd1 = "距离学考:" & pd2 & "天"
 Form1.BackColor = RGB(228, 228, 229)
 '半透明
 Dim rtn As Long
@@ -243,12 +255,17 @@ End Sub
 Private Sub Label4_DblClick()
 t2 = Val(i \ 60 + 1)
 If t2 > 10 Then
-t2 = InputBox("请输入设定时间（分）" & Chr(13) & "RASZ1901JZB制作", "时间设定", t2)
+t2 = InputBox("请输入设定时间（分）" & Chr(13) & "RASZ1901JZB制作" & Chr(13) & "cmd查看命令大全", "时间设定", t2)
 Else
-t2 = InputBox("请输入设定时间（分）" & Chr(13) & "RASZ1901JZB制作", "时间设定", "40")
+t2 = InputBox("请输入设定时间（分）" & Chr(13) & "RASZ1901JZB制作" & Chr(13) & "cmd查看命令大全", "时间设定", "40")
+End If
+If t2 = "cmd" Then
+MsgBox ("s 禁用下课提醒" & Chr(13) & "e 退出软件" & Chr(13) & "a 自动时间设置" & Chr(13) & "d 学考倒计时与课堂" & Chr(13) & "w 弹窗提醒")
+Exit Sub
 End If
 If t2 = "s" Then
 st = 0
+i = 0
 Exit Sub
 End If
 If t2 = "e" Then
@@ -272,6 +289,16 @@ MsgBox ("课堂模式")
 Else
 d = 1
 MsgBox ("倒数日模式")
+End If
+Exit Sub
+End If
+If t2 = "w" Then
+If wa = 1 Then
+wa = 0
+MsgBox ("到时弹出提醒")
+Else
+wa = 1
+MsgBox ("关闭弹出提醒")
 End If
 Exit Sub
 End If
@@ -299,6 +326,12 @@ Label3.Caption = Mid(t, 4, 2)
 If y0 <> Form1.Top Or x0 <> Form1.Left Then
 If Form1.Top > 8400 / 10800 * sy Then
 Form1.Top = 8400 / 10800 * sy
+End If
+If Form1.Top < 100 / 10800 * sy Then
+Form1.Top = 100 / 10800 * sy
+End If
+If Form1.Left < 200 / 19200 * sx Then
+Form1.Left = 200 / 19200 * sx
 End If
 If Form1.Left > 17000 / 19200 * sx Then
 Label1.Visible = False
@@ -334,20 +367,34 @@ End Sub
 
 Private Sub Timer2_Timer()
 If auto <> 0 Then
-If Time() = "7:25:00" Or Time() = "8:15:00" Or Time() = "9:20:00" Or Time() = "10:10:00" Or Time() = "11:05:00" Or Time() = "13:45:00" Or Time() = "14:40:00" Or Time() = "15:30:00" Or Time() = "16:20:00" Then
+'If Time() = "7:25:00" Or Time() = "8:15:00" Or Time() = "9:20:00" Or Time() = "10:10:00" Or Time() = "11:05:00" Or Time() = "13:45:00" Or Time() = "14:40:00" Or Time() = "15:30:00" Or Time() = "16:20:00" Then
+If Time() = "7:25:00" Or Time() = "8:30:00" Or Time() = "9:20:00" Or Time() = "10:15:00" Or Time() = "11:05:00" Or Time() = "13:45:00" Or Time() = "14:40:00" Or Time() = "15:30:00" Or Time() = "16:20:00" Then
 i = 2400
-Shape2.FillColor = RGB(140 + Rnd() * 83, 140 + Rnd() * 83, 140 + Rnd() * 83)
+Call bcolor
 End If
-If Time() = "7:55:00" Or Time() = "8:45:00" Or Time() = "9:50:00" Or Time() = "10:40:00" Or Time() = "11:35:00" Or Time() = "14:15:00" Or Time() = "15:10:00" Or Time() = "16:00:00" Or Time() = "16:50:00" Then
+'If Time() = "7:55:00" Or Time() = "8:45:00" Or Time() = "9:50:00" Or Time() = "10:40:00" Or Time() = "11:35:00" Or Time() = "14:15:00" Or Time() = "15:10:00" Or Time() = "16:00:00" Or Time() = "16:50:00" Then
+If Time() = "7:55:00" Or Time() = "9:00:00" Or Time() = "9:50:00" Or Time() = "10:45:00" Or Time() = "11:35:00" Or Time() = "14:15:00" Or Time() = "15:10:00" Or Time() = "16:00:00" Or Time() = "16:50:00" Then
 i = 600
 End If
+If Time() = "17:45:00" Then
+i = 900
+Call bcolor
+End If
 If Time() = "18:00:00" Then
-i = 6300
-Shape2.FillColor = RGB(140 + Rnd() * 83, 140 + Rnd() * 83, 140 + Rnd() * 83)
+i = 3000
+Call bcolor
+End If
+If Time() = "18:55:00" Then
+i = 3000
+Call bcolor
 End If
 If Time() = "20:00:00" Then
-i = 5400
-Shape2.FillColor = RGB(140 + Rnd() * 83, 140 + Rnd() * 83, 140 + Rnd() * 83)
+i = 4800
+Call bcolor
+End If
+If Time() = "21:20:00" Then
+i = 600
+Call bcolor
 End If
 End If
 '开始上课时定时
@@ -361,8 +408,8 @@ If a = 0 Then Label4.Caption = "提示:非课堂时间"
 If a = 1 Then Label4.Caption = "停"
 Label4.ForeColor = RGB(82, 64, 192)
 Else
-If a = 0 Then Label4.Caption = "距离学考:" & DateDiff("d", Now(), CDate("2021/1/6")) & "天"
-If a = 1 Then Label4.Caption = DateDiff("d", Now(), CDate("2021/1/6"))
+If a = 0 Then Label4.Caption = pd1
+If a = 1 Then Label4.Caption = pd2
 Label4.ForeColor = RGB(221, 8, 8)
 End If
 Timer3.Enabled = False
@@ -372,36 +419,42 @@ If i > 600 Then
 If a = 0 Then
 p1 = "本节课还剩:" & i \ 60 & ":" & i Mod 60
 If d = 0 Then Label4.Caption = p1: Label4.ForeColor = RGB(82, 64, 192)
-If d = 1 Then Label4.Caption = "距离学考:" & DateDiff("d", Now(), CDate("2021/1/6")) & "天": Label4.ForeColor = RGB(221, 8, 8)
+If d = 1 Then Label4.Caption = pd1: Label4.ForeColor = RGB(221, 8, 8)
 End If
 If a = 1 Then
 If d = 0 Then Label4.Caption = i \ 60: Label4.ForeColor = RGB(82, 64, 192)
-If d = 1 Then Label4.Caption = DateDiff("d", Now(), CDate("2021/1/6")): Label4.ForeColor = RGB(221, 8, 8)
+If d = 1 Then Label4.Caption = pd2: Label4.ForeColor = RGB(221, 8, 8)
 End If
 Timer3.Enabled = False
 End If
 If i <= 600 And i > 0 Then
 Timer3.Enabled = True
 End If
-If i = 60 And Form1.Left > 14500 / 19200 * sx Then
+If i = 60 And Form1.Left > 14500 / 19200 * sx And wa = 0 Then
 Form1.Left = 14500 / 19200 * sx
 End If
 '课堂倒计时
 End Sub
 
 Private Sub Timer3_Timer()
-If b = 0 Then
 If a = 0 Then
 p1 = "本节课还剩:" & i \ 60 & ":" & i Mod 60
-Label4.Caption = p1: Label4.ForeColor = RGB(82, 64, 192)
+Label4.Caption = p1
 End If
 If a = 1 Then
-Label4.Caption = i \ 60: Label4.ForeColor = RGB(82, 64, 192)
+Label4.Caption = i \ 60
 End If
-b = 1
-Else
-Label4.Caption = ""
-b = 0
-End If
+b = b + 0.2
+'Label4.ForeColor = RGB(82, 64, 192)
+Label4.ForeColor = RGB(27 + (180 * Abs(b)), (166 * Abs(b)), 192)
+If b = 1 Then b = -1
 '最后时间闪烁
 End Sub
+Function bcolor()
+color1 = color1 + 1
+If color1 = 3 Then color1 = 0
+color2 = Rnd() * 10000 Mod 30
+If color1 = 0 Then Shape2.FillColor = RGB(180 + color2, 210 - color2, 180)
+If color1 = 1 Then Shape2.FillColor = RGB(180 + color2, 180, 210 - color2)
+If color1 = 2 Then Shape2.FillColor = RGB(180, 180 + color2, 210 - color2)
+End Function
