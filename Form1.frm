@@ -6,7 +6,6 @@ Begin VB.Form Form1
    ClientLeft      =   14850
    ClientTop       =   7350
    ClientWidth     =   3810
-   Icon            =   "Form1.frx":0000
    LinkTopic       =   "Form1"
    MaxButton       =   0   'False
    MinButton       =   0   'False
@@ -127,22 +126,37 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-Dim i As Integer
-Dim a As Integer
-Dim b As String
-Dim auto As Integer
+
+Dim RemainTime As Integer
+Dim FormStyle As Integer
+Dim Time_Dict(1440) As Integer
 Dim sx As Integer
 Dim sy As Integer
-Dim t2 As String
-Dim t3 As String
-Dim st As Integer
-Dim wa As Integer
-Dim p1 As String
-Dim pd1 As String
-Dim pd2 As String
-Dim color1 As Single
-Dim color2 As Single
-Dim d As String
+
+Dim Input_text As String
+Dim BColorTime As Single
+
+Dim auto As Integer
+Dim Disable_time As Integer
+Dim soundplay As Integer
+Dim Warn_Off As Integer
+Dim PrintMode As String
+Dim Breath As String
+
+Dim PrintWord_long As String
+Dim PrintCount_long As String
+Dim PrintCount_Short As String
+
+
+'以下为铃声定义
+Private Declare Function waveOutGetNumDevs Lib "winmm.dll" () As Long
+Private Declare Function mciSendString Lib "winmm.dll" Alias "mciSendStringA" (ByVal lpstrCommand As String, ByVal lpstrReturnString As String, ByVal uReturnLength As Long, ByVal hwndCallback As Long) As Long
+Private Declare Function sndPlaySound& Lib "winmm.dll" Alias "sndPlaySoundA" (ByVal lpszSoundName As String, ByVal uFlags As Long)
+Const SND_SYNC = &H0
+Const SND_ASYNC = &H1
+Const SND_NODEFAULT = &H2
+Const soundname = "\ring.wav"
+'铃声结束
 
 Private Declare Function SetWindowPos Lib "user32" (ByVal hwnd As Long, ByVal hWndInsertAfter As Long, ByVal X As Long, ByVal Y As Long, ByVal cx As Long, ByVal cy As Long, ByVal wFlags As Long) As Long
 Dim BolIsMove As Boolean, MousX As Long, MousY As Long
@@ -158,6 +172,7 @@ Private Const GWL_EXSTYLE = (-20)
 Private Const LWA_ALPHA = &H2
 Private Const LWA_COLORKEY = &H1
 '半透明代码结束
+
 Private Declare Function SetWindowRgn Lib "user32" (ByVal hwnd As Long, ByVal hRgn As Long, ByVal bRedraw As Boolean) As Long
 '用于将CreateRoundRectRgn创建的圆角区域赋给窗体
 Private Declare Function CreateRoundRectRgn Lib "gdi32" (ByVal X1 As Long, ByVal Y1 As Long, ByVal X2 As Long, ByVal Y2 As Long, ByVal X3 As Long, ByVal Y3 As Long) As Long
@@ -172,7 +187,6 @@ Private Declare Function DeleteObject Lib "gdi32" (ByVal hObject As Long) As Lon
 Dim outrgn As Long
 '接下来声明一个全局变量,用来获得区域句柄
 
-
 Private Sub Form_Activate() '窗体Activate()事件
 Call rgnform(Me, 30, 30) '调用子过程
 End Sub
@@ -180,6 +194,7 @@ End Sub
 Private Sub Form_Unload(Cancel As Integer) '窗体Unload事件
 DeleteObject outrgn '将圆角区域使用的所有系统资源释放
 End Sub
+
 Private Sub rgnform(ByVal frmbox As Form, ByVal fw As Long, ByVal fh As Long) '子过程，改变参数fw和fh的值可实现圆角
 Dim w As Long, h As Long
 w = frmbox.ScaleX(frmbox.Width, vbTwips, vbPixels)
@@ -206,29 +221,42 @@ End Sub
  
 Private Sub Form_MouseUp(Button As Integer, Shift As Integer, X As Single, Y As Single)
 BolIsMove = False
+Call Set_Style  'jinsexinfeng
 End Sub
 '鼠标移动代码
 
 'Private Sub Form_QueryUnload(Cancel As Integer, UnloadMode As Integer)
-'If t2 <> "e" Then Cancel = True
+'If Input_text <> "e" Then Cancel = True
 '取消关闭
 'End Sub
+
+'播放 WAV 文件
+'PlayWav (App.Path + soundname)
+Private Sub PlayWav(soundname As String)
+    Dim tmpSoundName As String
+    Dim wFlags%, X%
+    tmpSoundName = pathWavFiles & soundname
+    wFlags% = SND_ASYNC Or SND_NODEFAULT
+    X% = sndPlaySound(tmpSoundName, wFlags%)
+End Sub
+
 
 Private Sub Form_Load()
 '窗口置顶代码
 SetWindowPos Me.hwnd, -1, 0, 0, 0, 0, 2 Or 1
 sx = Screen.Width
 sy = Screen.Height
+
 Randomize
-Call bcolor
-b = 0
-st = 1
-auto = 1
-d = 1
-wa = 1 '弹出提醒取消
-pd2 = DateDiff("d", Now(), CDate("2021/7/3"))
-pd1 = "距离学考:" & pd2 & "天"
+Call BColor
+Call settime
+Call Set_Style
+Call User_Setting
+
+PrintCount_Short = DateDiff("d", Now(), CDate("2022/6/7"))
+PrintCount_long = "距离高考:" & PrintCount_Short & "天"
 Form1.BackColor = RGB(228, 228, 229)
+
 '半透明
 Dim rtn As Long
 rtn = GetWindowLong(hwnd, GWL_EXSTYLE)
@@ -237,42 +265,93 @@ SetWindowLong hwnd, GWL_EXSTYLE, rtn
 SetLayeredWindowAttributes hwnd, 0, 230, LWA_ALPHA
 End Sub
 
+Sub User_Setting()
+Breath = 0  '呼吸用
+Disable_time = 1
+auto = 1
+PrintMode = 1
+soundplay = 1
+Warn_Off = 1 '弹出提醒取消
+
+'auto = GetSetting("JinSeXinFeng", "Time", "auto", 1)
+'Disable_time = GetSetting("JinSeXinFeng", "Time", "Disable_time", 1)
+'soundplay = GetSetting("JinSeXinFeng", "Time", "soundplay", 1)
+
+End Sub
+
 Private Sub Label1_Click()
-Form1.Left = 18400 / 19200 * sx
-'点击缩小
+Call Change_Style
 End Sub
 
 Private Sub Label2_Click()
-Form1.Left = 14500 / 19200 * sx
-'点击放大
+Call Change_Style
 End Sub
 
 Private Sub Label3_Click()
-Form1.Left = 14500 / 19200 * sx
-'点击放大
+Call Change_Style
+End Sub
+
+Sub Change_Style()
+If FormStyle = 1 Then
+    Form1.Left = 14500 / 19200 * sx
+    '点击放大
+ElseIf FormStyle = 0 Then
+    Form1.Left = 18400 / 19200 * sx
+    '点击缩小
+End If
+Call Set_Style
 End Sub
 
 Private Sub Label4_DblClick()
-t2 = Val(i \ 60 + 1)
-If t2 > 10 Then
-t2 = InputBox("请输入设定时间（分）" & Chr(13) & "RASZ1901JZB制作" & Chr(13) & "cmd查看命令大全", "时间设定", t2)
+If auto = 1 Then
+    Input_text = InputBox("RASZ1901JZB制作" & Chr(13) & "cmd查看命令大全", "时间设定", "cmd")
 Else
-t2 = InputBox("请输入设定时间（分）" & Chr(13) & "RASZ1901JZB制作" & Chr(13) & "cmd查看命令大全", "时间设定", "40")
+    Input_text = Val(RemainTime \ 60 + 1)
+    If Input_text > 10 Then
+    Input_text = InputBox("请输入设定时间（分）" & Chr(13) & "RASZ1901JZB制作" & Chr(13) & "cmd查看命令大全", "时间设定", Input_text)
+    Else
+    Input_text = InputBox("请输入设定时间（分）" & Chr(13) & "RASZ1901JZB制作" & Chr(13) & "cmd查看命令大全", "时间设定", "40")
+    End If
 End If
-If t2 = "cmd" Then
-MsgBox ("s 禁用下课提醒" & Chr(13) & "e 退出软件" & Chr(13) & "a 自动时间设置" & Chr(13) & "d 学考倒计时与课堂" & Chr(13) & "w 弹窗提醒")
+SettingIndex = CheckSettingIndex(Input_text)
+If SettingIndex = -2 Then
+    MsgBox "s 禁用下课提醒" & Chr(13) & "e 退出软件" & Chr(13) & "au 自动时间设置" & Chr(13) & "d 学考倒计时与课堂" & Chr(13) & "w 弹窗提醒" & Chr(13) & "m 音乐提醒"
+ElseIf SettingIndex = -1 Then
+    MsgBox "输入错误"
+ElseIf SettingIndex = 0 Then
+    RemainTime = Val(Input_text) * 60
+    Disable_time = 1
+    auto = 0
+ElseIf SettingIndex > 0 Then
+    Call SetSetting(Input_text)
+End If
+End Sub
+
+Sub SetSetting(Input_text)
+If Input_text = "m" Then
+If soundplay = 0 Then
+soundplay = 1
+MsgBox ("已开启音乐提醒")
+Else
+soundplay = 0
+MsgBox ("已关闭音乐提醒")
+End If
 Exit Sub
 End If
-If t2 = "s" Then
-st = 0
-i = 0
+If Input_text = "s" Then
+If Disable_time = 1 Then
+Disable_time = 0
+RemainTime = 0
+Else
+Disable_time = 1
+End If
 Exit Sub
 End If
-If t2 = "e" Then
+If Input_text = "e" Then
 Unload Form1
 Exit Sub
 End If
-If t2 = "a" Then
+If Input_text = "au" Then
 If auto = 1 Then
 auto = 0
 MsgBox ("已关闭自动时间设置")
@@ -282,39 +361,56 @@ MsgBox ("已开启自动时间设置")
 End If
 Exit Sub
 End If
-If t2 = "d" Then
-If d = 1 Then
-d = 0
+If Input_text = "PrintMode" Then
+If PrintMode = 1 Then
+PrintMode = 0
 MsgBox ("课堂模式")
 Else
-d = 1
+PrintMode = 1
 MsgBox ("倒数日模式")
 End If
 Exit Sub
 End If
-If t2 = "w" Then
-If wa = 1 Then
-wa = 0
+If Input_text = "w" Then
+If Warn_Off = 1 Then
+Warn_Off = 0
 MsgBox ("到时弹出提醒")
 Else
-wa = 1
+Warn_Off = 1
 MsgBox ("关闭弹出提醒")
 End If
 Exit Sub
 End If
-For z = 1 To Len(t2)
-t3 = Mid(t2, z, 1)
-If Asc(t3) > 57 Or Asc(t3) < 46 Or Asc(t3) = 47 Then
-MsgBox ("输入错误")
-Exit Sub
-End If
-Next z
-If t2 <> "" Then
-i = Val(t2) * 60
-st = 1
-End If
-'自定义定时
 End Sub
+
+Function CheckSettingIndex(Input_text As String) As Integer
+Dim Temp As String
+CheckSettingIndex = -1
+If Input_text = "cmd" Then
+    CheckSettingIndex = -2
+ElseIf Input_text = "s" Then 's 禁用下课提醒
+    CheckSettingIndex = 1
+ElseIf Input_text = "e" Then 'e 退出软件
+    CheckSettingIndex = 2
+ElseIf Input_text = "au" Then 'au 自动时间设置
+    CheckSettingIndex = 3
+ElseIf Input_text = "d" Then 'd 学考倒计时与课堂
+    CheckSettingIndex = 4
+ElseIf Input_text = "w" Then 'w 弹窗提醒
+    CheckSettingIndex = 5
+ElseIf Input_text = "m" Then 'm 音乐提醒
+    CheckSettingIndex = 6
+End If
+If CheckSettingIndex = -1 Then
+For z = 1 To Len(Input_text)
+    Temp = Mid(Input_text, z, 1)
+    If Asc(Temp) > 57 Or Asc(Temp) < 46 Or Asc(Temp) = 47 Then
+        Exit Function
+    End If
+Next z
+CheckSettingIndex = 0
+End If
+End Function
 
 Private Sub Timer1_Timer()
 t = Time()
@@ -323,138 +419,161 @@ If Len(t) = 7 Then t = 0 & t
 Label2.Caption = Mid(t, 1, 2)
 Label3.Caption = Mid(t, 4, 2)
 '时间显示
-If y0 <> Form1.Top Or x0 <> Form1.Left Then
-If Form1.Top > 8400 / 10800 * sy Then
-Form1.Top = 8400 / 10800 * sy
-End If
-If Form1.Top < 100 / 10800 * sy Then
-Form1.Top = 100 / 10800 * sy
-End If
-If Form1.Left < 200 / 19200 * sx Then
-Form1.Left = 200 / 19200 * sx
-End If
-If Form1.Left > 17000 / 19200 * sx Then
-Label1.Visible = False
-Form1.Width = 850
-Form1.Left = sx - 950
-Label2.Visible = True
-Label3.Visible = True
-Label4.Alignment = 0
-a = 1
-End If
-If Form1.Left < 16990 / 19200 * sx Then
-Label1.Visible = True
-Form1.Width = 3900
-Label2.Visible = False
-Label3.Visible = False
-Label4.Alignment = 2
-a = 0
-End If
-y0 = Form1.Top
-x0 = Form1.Left
-End If
+End Sub
+
+Sub Set_Style()
 '缩小放大参数调整
-If st = 0 Then
-Timer2.Enabled = False
-Timer3.Enabled = False
-Label4.ForeColor = RGB(255, 0, 255)
-If a = 0 Then Label4.Caption = "已禁用下课提醒"
-If a = 1 Then Label4.Caption = "禁"
-Else
-Timer2.Enabled = True
+If y0 <> Form1.Top Or x0 <> Form1.Left Then
+    If Form1.Top > 8400 / 10800 * sy Then
+        Form1.Top = 8400 / 10800 * sy
+    End If
+    If Form1.Top < 100 / 10800 * sy Then
+        Form1.Top = 100 / 10800 * sy
+    End If
+    If Form1.Left < 200 / 19200 * sx Then
+        Form1.Left = 200 / 19200 * sx
+    End If
+    If Form1.Left > 17000 / 19200 * sx Then
+        Label1.Visible = False
+        Form1.Width = 850
+        Form1.Left = sx - 950
+        Label2.Visible = True
+        Label3.Visible = True
+        Label4.Alignment = 0
+        FormStyle = 1
+    End If
+    If Form1.Left < 16990 / 19200 * sx Then
+        Label1.Visible = True
+        Form1.Width = 3900
+        Label2.Visible = False
+        Label3.Visible = False
+        Label4.Alignment = 2
+        FormStyle = 0
+    End If
+    y0 = Form1.Top
+    x0 = Form1.Left
 End If
+Call Print_word
 End Sub
 
 Private Sub Timer2_Timer()
-If auto <> 0 Then
-'If Time() = "7:25:00" Or Time() = "8:15:00" Or Time() = "9:20:00" Or Time() = "10:10:00" Or Time() = "11:05:00" Or Time() = "13:45:00" Or Time() = "14:40:00" Or Time() = "15:30:00" Or Time() = "16:20:00" Then
-If Time() = "7:25:00" Or Time() = "8:30:00" Or Time() = "9:20:00" Or Time() = "10:15:00" Or Time() = "11:05:00" Or Time() = "13:45:00" Or Time() = "14:40:00" Or Time() = "15:30:00" Or Time() = "16:20:00" Then
-i = 2400
-Call bcolor
+If auto <> 0 Then   '开始上课时定时
+    Call Down_Time
 End If
-'If Time() = "7:55:00" Or Time() = "8:45:00" Or Time() = "9:50:00" Or Time() = "10:40:00" Or Time() = "11:35:00" Or Time() = "14:15:00" Or Time() = "15:10:00" Or Time() = "16:00:00" Or Time() = "16:50:00" Then
-If Time() = "7:55:00" Or Time() = "9:00:00" Or Time() = "9:50:00" Or Time() = "10:45:00" Or Time() = "11:35:00" Or Time() = "14:15:00" Or Time() = "15:10:00" Or Time() = "16:00:00" Or Time() = "16:50:00" Then
-i = 600
+
+If RemainTime >= 0 Then
+    RemainTime = RemainTime - 1
+    Shape2.Top = (2400 - RemainTime) / 2400 * 2010
 End If
-If Time() = "17:45:00" Then
-i = 900
-Call bcolor
+Call Print_word
+End Sub
+
+Sub Print_word()
+PrintWord_long = "本节课还剩:" & RemainTime \ 60 & ":" & RemainTime Mod 60
+PrintWord_Short = RemainTime \ 60
+If Disable_time = 0 Then
+    Timer3.Enabled = False
+    If FormStyle = 0 Then Label4.Caption = "已禁用下课提醒"
+    If FormStyle = 1 Then Label4.Caption = "禁"
+    Label4.ForeColor = RGB(255, 0, 255)
+    Exit Sub
 End If
-If Time() = "18:00:00" Then
-i = 3000
-Call bcolor
-End If
-If Time() = "18:55:00" Then
-i = 3000
-Call bcolor
-End If
-If Time() = "20:00:00" Then
-i = 4800
-Call bcolor
-End If
-If Time() = "21:20:00" Then
-i = 600
-Call bcolor
-End If
-End If
-'开始上课时定时
-If i >= 0 Then
-i = i - 1
-Shape2.Top = (2400 - i) / 2400 * 2010
-End If
-If i <= 0 Then
-If d = 0 Then
-If a = 0 Then Label4.Caption = "提示:非课堂时间"
-If a = 1 Then Label4.Caption = "停"
-Label4.ForeColor = RGB(82, 64, 192)
-Else
-If a = 0 Then Label4.Caption = pd1
-If a = 1 Then Label4.Caption = pd2
-Label4.ForeColor = RGB(221, 8, 8)
-End If
-Timer3.Enabled = False
-Exit Sub
-End If
-If i > 600 Then
-If a = 0 Then
-p1 = "本节课还剩:" & i \ 60 & ":" & i Mod 60
-If d = 0 Then Label4.Caption = p1: Label4.ForeColor = RGB(82, 64, 192)
-If d = 1 Then Label4.Caption = pd1: Label4.ForeColor = RGB(221, 8, 8)
-End If
-If a = 1 Then
-If d = 0 Then Label4.Caption = i \ 60: Label4.ForeColor = RGB(82, 64, 192)
-If d = 1 Then Label4.Caption = pd2: Label4.ForeColor = RGB(221, 8, 8)
-End If
-Timer3.Enabled = False
-End If
-If i <= 600 And i > 0 Then
-Timer3.Enabled = True
-End If
-If i = 60 And Form1.Left > 14500 / 19200 * sx And wa = 0 Then
-Form1.Left = 14500 / 19200 * sx
+If RemainTime >= 600 Then
+    If PrintMode = 0 Then
+        If FormStyle = 0 Then
+           Label4.Caption = PrintWord_long
+        End If
+        If FormStyle = 1 Then
+           Label4.Caption = PrintWord_Short
+        End If
+        Label4.ForeColor = RGB(82, 64, 192)
+    End If
+    If PrintMode = 1 Then
+        If FormStyle = 0 Then
+          Label4.Caption = PrintCount_long
+        End If
+        If FormStyle = 1 Then
+          Label4.Caption = PrintCount_Short
+        End If
+        Label4.ForeColor = RGB(221, 8, 8)
+    End If
+ElseIf RemainTime > 0 Then
+    If FormStyle = 0 Then
+        Label4.Caption = PrintWord_long
+    End If
+    If FormStyle = 1 Then
+        Label4.Caption = PrintWord_Short
+    End If
+    Timer3.Enabled = True
+    If RemainTime = 60 And Form1.Left > 14500 / 19200 * sx And Warn_Off = 0 Then
+        Form1.Left = 14500 / 19200 * sx
+    End If
+    If RemainTime = 1 And soundplay = 1 Then
+        PlayWav (App.Path + soundname)
+    End If
+    If RemainTime = 1 Then
+        Call BColor
+    End If
+ElseIf RemainTime >= -1 Then
+    If PrintMode = 0 Then
+        If FormStyle = 0 Then Label4.Caption = "提示:非课堂时间"
+        If FormStyle = 1 Then Label4.Caption = "停"
+        Label4.ForeColor = RGB(82, 64, 192)
+    Else
+        If FormStyle = 0 Then Label4.Caption = PrintCount_long
+        If FormStyle = 1 Then Label4.Caption = PrintCount_Short
+        Label4.ForeColor = RGB(221, 8, 8)
+    End If
+    Timer3.Enabled = False
 End If
 '课堂倒计时
 End Sub
 
 Private Sub Timer3_Timer()
-If a = 0 Then
-p1 = "本节课还剩:" & i \ 60 & ":" & i Mod 60
-Label4.Caption = p1
-End If
-If a = 1 Then
-Label4.Caption = i \ 60
-End If
-b = b + 0.2
-'Label4.ForeColor = RGB(82, 64, 192)
-Label4.ForeColor = RGB(27 + (180 * Abs(b)), (166 * Abs(b)), 192)
-If b = 1 Then b = -1
-'最后时间闪烁
+Breath = Breath + 0.2
+Label4.ForeColor = RGB(27 + (180 * Abs(Breath)), (166 * Abs(Breath)), 192)
+If Breath = 1 Then Breath = -1
+'最后时间呼吸闪烁
 End Sub
-Function bcolor()
-color1 = color1 + 1
-If color1 = 3 Then color1 = 0
-color2 = Rnd() * 10000 Mod 30
-If color1 = 0 Then Shape2.FillColor = RGB(180 + color2, 210 - color2, 180)
-If color1 = 1 Then Shape2.FillColor = RGB(180 + color2, 180, 210 - color2)
-If color1 = 2 Then Shape2.FillColor = RGB(180, 180 + color2, 210 - color2)
+
+Sub BColor()
+Dim RGBColor As Single
+BColorTime = (BColorTime + 1)mod 3
+RGBColor = Rnd() * 10000 Mod 30
+If BColorTime = 0 Then Shape2.FillColor = RGB(180 + RGBColor, 210 - RGBColor, 180)
+If BColorTime = 1 Then Shape2.FillColor = RGB(180 + RGBColor, 180, 210 - RGBColor)
+If BColorTime = 2 Then Shape2.FillColor = RGB(180, 180 + RGBColor, 210 - RGBColor)
+End Sub
+
+Sub settime()
+Dim tempStr As String '定义变量tempStr为字符串
+Dim temp_a, temp_b As String
+Dim temp_c As Integer
+Dim place_file As String
+place_file = App.Path & "\timedict.txt"
+Open place_file For Input As #1 '打开文件
+While Not EOF(1)  '读取到结束
+    Line Input #1, temp_a '读取一行到变量tempStr
+    If Len(temp_a) = 16 Then
+    If Mid(temp_a, Weekday(Now()) + 9, 1) = "1" Then
+    temp_b = ChangetoNum(Mid(temp_a, 1, 5))
+    temp_c = Val(Mid(temp_a, 7, 2))
+    For m = 0 To temp_c - 1
+    Time_Dict(temp_b + m) = (temp_c - m) * 60
+    Next m
+    End If
+    End If
+Wend '未结束继续
+Close #1 '关闭
+End Sub
+
+Sub Down_Time()
+If Right(Time(), 2) = "00" Then
+    If Time_Dict(ChangetoNum(Time())) <> 0 Then RemainTime = Time_Dict(ChangetoNum(Time()))
+End If
+End Sub
+
+Function ChangetoNum(k As String) As Integer
+If Len(k) = 7 Then k = "0" & k
+ChangetoNum = Mid(k, 1, 2) * 60 + Mid(k, 4, 2)
 End Function
